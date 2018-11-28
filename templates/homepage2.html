@@ -1,0 +1,362 @@
+<html>
+<head>
+<meta charset="UTF-8"> 
+<title>Chessboard using Pure CSS and HTML</title>
+<style type="text/css">
+.chessboard {
+    width: 640px;
+    height: 640px;
+    margin: 20px;
+    border: 25px solid #333;
+}
+.black {
+    float: left;
+    width: 80px;
+    height: 80px;
+    background-color: #999;
+      font-size:50px;
+    text-align:center;
+    display: table-cell;
+    vertical-align:middle;
+}
+.white {
+    float: left;
+    width: 80px;
+    height: 80px;
+    background-color: #fff;
+    font-size:50px;
+    text-align:center;
+    display: table-cell;
+    vertical-align:middle;
+}
+</style>
+</head>
+<body>
+<div class="chessboard">
+<!-- 1st -->
+{% for y in range(0, board_layout[0]|length , 2) %}
+    {% if y-1 >=0 and not board_layout[0][y-1].isalpha() and board_layout[0][y-1]|int % 2 == 0 %}
+        {% if board_layout[0][y].isalpha() %}
+            <div class="black">{{piece_styles[board_layout[0][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[0][y]| int) %}
+                <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[0][y].isalpha() %}
+            <div class="white">{{piece_styles[board_layout[0][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[0][y]| int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+    {% if board_layout[0][y+1] %}
+        {% if not board_layout[0][y].isalpha() and board_layout[0][y]|int % 2 == 0 %}
+            {% if board_layout[0][y+1].isalpha() %}
+                <div class="white">{{piece_styles[board_layout[0][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[0][y+1] | int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+                {% endfor %}
+            {% endif %} 
+        {% else %}  
+            {% if board_layout[0][y+1].isalpha() %}
+                <div class="black">{{piece_styles[board_layout[0][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[0][y+1] | int) %}
+                    <div class="{{ loop.cycle('black', 'white') }}"></div>
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+<!-- 2nd -->
+{% for y in range(0, board_layout[1]|length , 2) %}
+{% if y-1>=0 and not board_layout[1][y-1].isalpha() and board_layout[1][y-1]|int % 2 == 0 %}
+    {% if board_layout[1][y].isalpha() %}
+    <div class="white">{{piece_styles[board_layout[1][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[1][y] | int) %}
+        <div class="{{ loop.cycle('white', 'black') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% else %}
+    {% if board_layout[1][y].isalpha() %}
+    <div class="black">{{piece_styles[board_layout[1][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[1][y] | int) %}
+        <div class="{{ loop.cycle('black', 'white') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% endif %}
+{% if board_layout[1][y+1] %}
+    {% if not board_layout[1][y].isalpha() and board_layout[1][y]|int % 2 == 0 %}
+        {% if board_layout[1][y+1].isalpha() %}
+        <div class="black">{{piece_styles[board_layout[1][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[1][y+1] | int) %}
+            <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[1][y+1].isalpha() %}
+        <div class="white">{{piece_styles[board_layout[1][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[1][y+1] | int) %}
+            <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+{% endif %}
+{% endfor %}
+<!-- 3th -->
+{% for y in range(0, board_layout[2]|length , 2) %}
+    {% if y-1 >=0 and not board_layout[2][y-1].isalpha() and board_layout[2][y-1]|int % 2 == 0 %}
+        {% if board_layout[2][y].isalpha() %}
+            <div class="black">{{piece_styles[board_layout[2][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[2][y]| int) %}
+                <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% elif y-1 >=0 and board_layout [2][y-1].isalpha() and board_layout[2][y-1]|int % 2 != 0 %}
+        {% for num in range(board_layout[2][y]| int) %}
+        <div class="{{ loop.cycle('black', 'white') }}"></div>
+        {% endfor %}
+    {% else %}
+        {% if board_layout[2][y].isalpha() %}
+            <div class="white">{{piece_styles[board_layout[2][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[2][y]| int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+    {% if board_layout[2][y+1] %}
+        {% if not board_layout[2][y].isalpha() and board_layout[2][y]|int % 2 == 0 %}
+            {% if board_layout[2][y+1].isalpha() %}
+                <div class="white">{{piece_styles[board_layout[2][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[2][y+1] | int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+                {% endfor %}
+            {% endif %} 
+        {% else %}  
+            {% if board_layout[2][y+1].isalpha() %}
+                <div class="black">{{piece_styles[board_layout[2][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[2][y+1] | int) %}
+                    <div class="{{ loop.cycle('black', 'white') }}"></div>
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+<!-- 4st -->
+{% for y in range(0, board_layout[3]|length , 2) %}
+{% if y-1>=0 and not board_layout[3][y-1].isalpha() and board_layout[3][y-1]|int % 2 == 0 %}
+    {% if board_layout[3][y].isalpha() %}
+    <div class="white">{{piece_styles[board_layout[3][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[3][y] | int) %}
+        <div class="{{ loop.cycle('white', 'black') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% else %}
+    {% if board_layout[3][y].isalpha() %}
+    <div class="black">{{piece_styles[board_layout[3][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[3][y] | int) %}
+        <div class="{{ loop.cycle('black', 'white') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% endif %}
+{% if board_layout[3][y+1] %}
+    {% if not board_layout[3][y].isalpha() and board_layout[3][y]|int % 2 == 0 %}
+        {% if board_layout[3][y+1].isalpha() %}
+        <div class="black">{{piece_styles[board_layout[3][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[3][y+1] | int) %}
+            <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[3][y+1].isalpha() %}
+        <div class="white">{{piece_styles[board_layout[3][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[3][y+1] | int) %}
+            <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+{% endif %}
+{% endfor %}
+<!-- 5th -->
+{% for y in range(0, board_layout[4]|length-1 , 2) %}
+    {% if y-1 >=0 and not board_layout[4][y-1].isalpha() and board_layout[4][y-1]|int % 2 == 0 %}
+        {% if board_layout[4][y].isalpha() %}
+            <div class="black">{{piece_styles[board_layout[4][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[4][y]| int) %}
+                <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[4][y].isalpha() %}
+            <div class="white">{{piece_styles[board_layout[4][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[4][y]| int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+    {% if board_layout[4][y+1] %}
+        {% if not board_layout[4][y].isalpha() and board_layout[4][y]|int % 2 == 0 %}
+            {% if board_layout[4][y+1].isalpha() %}
+                <div class="white">{{piece_styles[board_layout[4][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[4][y+1] | int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+                {% endfor %}
+            {% endif %} 
+        {% else %}  
+            {% if board_layout[4][y+1].isalpha() %}
+                <div class="black">{{piece_styles[board_layout[4][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[4][y+1] | int) %}
+                    <div class="{{ loop.cycle('black', 'white') }}"></div>
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+<!-- 6th -->
+{% for y in range(0, board_layout[5]|length , 2) %}
+{% if y-1>=0 and not board_layout[5][y-1].isalpha() and board_layout[5][y-1]|int % 2 == 0 %}
+    {% if board_layout[5][y].isalpha() %}
+    <div class="white">{{piece_styles[board_layout[5][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[5][y] | int) %}
+        <div class="{{ loop.cycle('white', 'black') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% else %}
+    {% if board_layout[5][y].isalpha() %}
+    <div class="black">{{piece_styles[board_layout[5][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[5][y] | int) %}
+        <div class="{{ loop.cycle('black', 'white') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% endif %}
+{% if board_layout[5][y+1] %}
+    {% if not board_layout[5][y].isalpha() and board_layout[5][y]|int % 2 == 0 %}
+        {% if board_layout[5][y+1].isalpha() %}
+        <div class="black">{{piece_styles[board_layout[5][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[5][y+1] | int) %}
+            <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[5][y+1].isalpha() %}
+        <div class="white">{{piece_styles[board_layout[5][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[5][y+1] | int) %}
+            <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+{% endif %}
+{% endfor %}
+<!-- 7th -->
+{% for y in range(0, board_layout[6]|length-1 , 2) %}
+    {% if y-1 >=0 and not board_layout[6][y-1].isalpha() and board_layout[6][y-1]|int % 2 == 0 %}
+        {% if board_layout[6][y].isalpha() %}
+            <div class="black">{{piece_styles[board_layout[6][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[6][y]| int) %}
+                <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[6][y].isalpha() %}
+            <div class="white">{{piece_styles[board_layout[6][y]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[6][y]| int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+    {% if board_layout[6][y+1] %}
+        {% if not board_layout[6][y].isalpha() and board_layout[6][y]|int % 2 == 0 %}
+            {% if board_layout[6][y+1].isalpha() %}
+                <div class="white">{{piece_styles[board_layout[6][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[6][y+1] | int) %}
+                <div class="{{ loop.cycle('white', 'black') }}"></div>
+                {% endfor %}
+            {% endif %} 
+        {% else %}  
+            {% if board_layout[6][y+1].isalpha() %}
+                <div class="black">{{piece_styles[board_layout[6][y+1]]|safe}};</div>
+            {% else %}
+                {% for num in range(board_layout[6][y+1] | int) %}
+                    <div class="{{ loop.cycle('black', 'white') }}"></div>
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+<!-- 8th -->
+{% for y in range(0, board_layout[7]|length , 2) %}
+{% if y-1>=0 and not board_layout[7][y-1].isalpha() and board_layout[7][y-1]|int % 2 == 0 %}
+    {% if board_layout[7][y].isalpha() %}
+    <div class="white">{{piece_styles[board_layout[7][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[7][y] | int) %}
+        <div class="{{ loop.cycle('white', 'black') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% else %}
+    {% if board_layout[7][y].isalpha() %}
+    <div class="black">{{piece_styles[board_layout[7][y]]|safe}};</div>
+    {% else %}
+        {% for num in range(board_layout[7][y] | int) %}
+        <div class="{{ loop.cycle('black', 'white') }}"></div>
+        {% endfor %}
+    {% endif %}
+{% endif %}
+{% if board_layout[7][y+1] %}
+    {% if not board_layout[7][y].isalpha() and board_layout[7][y]|int % 2 == 0 %}
+        {% if board_layout[7][y+1].isalpha() %}
+        <div class="black">{{piece_styles[board_layout[7][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[7][y+1] | int) %}
+            <div class="{{ loop.cycle('black', 'white') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% else %}
+        {% if board_layout[7][y+1].isalpha() %}
+        <div class="white">{{piece_styles[board_layout[7][y+1]]|safe}};</div>
+        {% else %}
+            {% for num in range(board_layout[7][y+1] | int) %}
+            <div class="{{ loop.cycle('white', 'black') }}"></div>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+{% endif %}
+{% endfor %}
+</div>
+<div>
+<form method='post' id='move'>
+        <div class="form-group">
+                <input type="text" class="form-control" name="move" placeholder="Enter Move">
+            </div>
+            <button type="submit" class="btn btn-block btn-primary">Submit</button>
+</form>
+</div>
+</body>
+</html>

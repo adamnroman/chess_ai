@@ -5,20 +5,11 @@ from game import Game
 from test_helpers import heuristic_gen, get_successors
 from node import Node
 import heuristics
+import heuristics2
 import random
 import time
 import json
 
-# open JSON file to read cached oves
-with open("./moves_cache.json", "r") as f:
-    try:
-        cache_moves = json.load(f)
-        # if the file is empty the ValueError will be thrown
-    except ValueError:
-        cache_moves = {'even': {}, 'odd': {}}
-
-even_moves = cache_moves['even']
-odd_moves = cache_moves['odd']
 
 # Magenta = '\033[95m'
 # Blue = '\033[94m'
@@ -32,7 +23,8 @@ odd_moves = cache_moves['odd']
 class Game_Engine():
     def __init__(self, board_state):
         self.game = Game(board_state)
-        self.computer = AI(self.game, 5)
+        self.computer = AI(self.game,1 )
+        self.computer2 = AI2(self.game,1)
 
     def prompt_user(self):
         print("\033[94m\033[1m===================================================================")
@@ -47,10 +39,10 @@ class Game_Engine():
         self.computer.print_board(str(self.game))
         try:
             while self.game.status < 2:
-                user_move = raw_input("\nMake a move: \033[95m")
+                user_move = input("\nMake a move: \033[95m")
                 print("\033[0m")
                 while user_move not in self.game.get_moves() and user_move != "ff":
-                    user_move = raw_input("Please enter a valid move: ")
+                    user_move = input("Please enter a valid move: ")
                 if user_move == "ff":
                     print("You surrendered.")
                     break;
@@ -61,7 +53,7 @@ class Game_Engine():
                 print("\nCalculating...\n")
                 if self.game.status < 2:
                     current_state = str(self.game)
-                    computer_move = self.computer.ab_make_move(current_state)
+                    computer_move = self.computer.make_move(current_state)
                     PIECE_NAME = {'p': 'pawn', 'b': 'bishop', 'n': 'knight', 'r': 'rook', 'q': 'queen', 'k': 'king'}
                     start = computer_move[:2]
                     end = computer_move[2:4]
@@ -83,7 +75,7 @@ class Game_Engine():
                     self.game.apply_move(computer_move)
                 captured = self.captured_pieces(str(self.game))
                 self.computer.print_board(str(self.game), captured)
-            user_move = raw_input("Game over. Play again? y/n: ")
+            user_move = input("Game over. Play again? y/n: ")
             if user_move.lower() == "y":
                 self.game = Game()
                 self.computer.game = self.game
@@ -132,16 +124,11 @@ class Game_Engine():
         return captured
 
 class AI():
-    def __init__(self, game, max_depth=4, leaf_nodes=[], node_count=0):
+    def __init__(self, game, max_depth=1, leaf_nodes=[], node_count=0):
         self.max_depth = max_depth
-        self.leaf_nodes = heuristic_gen(leaf_nodes)
         self.game = game
         self.node_count = node_count
-        if self.max_depth % 2 == 0:
-            self.cache = cache_moves['even']
-        else:
-            self.cache = cache_moves['odd']
-        self.found_in_cache = 0
+
 
     def print_board(self, board_state, captured={"w": [], "b": []}):
         PIECE_SYMBOLS = {'P': '♟',
@@ -186,21 +173,17 @@ class AI():
             board_state = str(self.game)
         possible_moves = []
         for move in Game(board_state).get_moves():
-            if (len(move) < 5 or move[4] == "q"):
-                clone = Game(board_state)
-                clone.apply_move(move)
-                node = Node(str(clone))
-                node.algebraic_move = move
-                possible_moves.append(node)
+            clone = Game(board_state)
+            clone.apply_move(move)
+            node = Node(str(clone))
+            node.algebraic_move = move
+            possible_moves.append(node)
         return possible_moves
 
     def get_heuristic(self, board_state=None):
         cache_parse = board_state.split(" ")[0] + " " + board_state.split(" ")[1]
         if board_state == None:
             board_state = str(self.game)
-        if cache_parse in self.cache:
-            self.found_in_cache += 1
-            return self.cache[cache_parse]
         clone = Game(board_state)
         total_points = 0
         # total piece count
@@ -208,42 +191,199 @@ class AI():
         total_points += heuristics.piece_moves(clone, 50)
         total_points += heuristics.in_check(clone, 1)
         total_points += heuristics.pawn_structure(board_state, 1)
-        self.cache[cache_parse] = total_points
         return total_points
 
     def minimax(self, node, current_depth=0):
-        current_depth += 1
         if current_depth == self.max_depth:
             # get heuristic of each node
             node.value = self.get_heuristic(node.board_state)
             return node.value
         if current_depth % 2 == 0:
             # min player's turn
+            current_depth += 1
             self.is_turn = False
-            return min([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state, self.is_turn)])
+            return min([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state)])
         else:
             # max player's turn
             self.is_turn = True
-            return max([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state, self.is_turn)])
+            current_depth += 1
+            return max([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state)])
 
-    def make_move(self, node):
+    def make_move(self, board_state):
         self.is_turn = True
-        possible_moves = self.get_moves(node.board_state, self.is_turn)
+        possible_moves = self.get_moves(board_state)
         for move in possible_moves:
-            move.value = self.minimax(move, 1)
+            move.value = self.minimax(move)
         best_move = possible_moves[0]
         for move in possible_moves:
             if move.value > best_move.value:
                 best_move = move
         # best_move at this point stores the move with the highest heuristic
-        return best_move
+        data = str(best_move)
+        self.cache_moves(data)
+        return best_move.algebraic_move
+    
     def ab_make_move(self, board_state):
         possible_moves = self.get_moves(board_state)
-        alpha = float("-inf")
-        beta = float("inf")
+        alpha = -1000
+        beta = 1000
         best_move = possible_moves[0]
         for move in possible_moves:
-            board_value = self.ab_minimax(move, alpha, beta, 1)
+            board_value = self.ab_minimax(move, alpha, beta)
+            if alpha < board_value:
+                alpha = board_value
+                best_move = move
+                best_move.value = alpha
+        # best_move at this point stores the move with the highest heuristic
+        return best_move.algebraic_move
+
+    def ab_minimax(self, node, alpha, beta, current_depth=0):
+        current_depth += 1
+        if current_depth == self.max_depth:
+            board_value = self.get_heuristic(node.board_state)
+            if current_depth % 2 == 0:
+                # pick largest number, where root is black and even depth
+                if (alpha < board_value):
+                    alpha = board_value
+                self.node_count += 1
+                return alpha
+            else:
+                # pick smallest number, where root is black and odd depth
+                if (beta > board_value):
+                    beta = board_value
+                self.node_count += 1
+                return beta
+        if current_depth % 2 == 0:
+            # min player's turn
+            for child_node in self.get_moves(node.board_state):
+                if alpha < beta:
+                    board_value = self.ab_minimax(child_node,alpha, beta, current_depth)
+                    if beta > board_value:
+                        beta = board_value
+            return beta
+        else:
+            # max player's turn
+            for child_node in self.get_moves(node.board_state):
+                if alpha < beta:
+                    board_value = self.ab_minimax(child_node,alpha, beta, current_depth)
+                    if alpha < board_value:
+                        alpha = board_value
+            return alpha
+    def cache_moves(self,data):
+        f = open('./moves_cache.txt', 'a')
+        f.write(data)
+        f.write('\n')
+        f.close()
+
+class AI2():
+    def __init__(self, game, max_depth=1, leaf_nodes=[], node_count=0):
+        self.max_depth = max_depth
+        self.game = game
+        self.node_count = node_count
+
+    def print_board(self, board_state, captured={"w": [], "b": []}):
+        PIECE_SYMBOLS = {'P': '♟',
+                        'B': '♝',
+                        'N': '♞',
+                        'R': '♜',
+                        'Q': '♛',
+                        'K': '♚',
+                        'p': '\033[36m\033[1m♙\033[0m',
+                        'b': '\033[36m\033[1m♗\033[0m',
+                        'n': '\033[36m\033[1m♘\033[0m',
+                        'r': '\033[36m\033[1m♖\033[0m',
+                        'q': '\033[36m\033[1m♕\033[0m',
+                        'k': '\033[36m\033[1m♔\033[0m'}
+        board_state = board_state.split()[0].split("/")
+        board_state_str = "\n"
+        white_captured = " ".join(PIECE_SYMBOLS[piece] for piece in captured['w'])
+        black_captured = " ".join(PIECE_SYMBOLS[piece] for piece in captured['b'])
+        for i, row in enumerate(board_state):
+            board_state_str += str(8-i)
+            for char in row:
+                if char.isdigit():
+                    board_state_str += " ♢" * int(char)
+                else:
+                    board_state_str += " " + PIECE_SYMBOLS[char]
+            if i == 0:
+                board_state_str += "   Captured:" if len(white_captured) > 0 else ""
+            if i == 1:
+                board_state_str += "   " + white_captured
+            if i == 6:
+                board_state_str += "   Captured:" if len(black_captured) > 0 else ""
+            if i == 7:
+                board_state_str += "   " + black_captured
+            board_state_str += "\n"
+        board_state_str += "  A B C D E F G H"
+        self.found_in_cache = 0
+        self.node_count = 0
+        print(board_state_str)
+
+    def get_moves(self, board_state=None):
+        if board_state == None:
+            board_state = str(self.game)
+        possible_moves = []
+        for move in Game(board_state).get_moves():
+            clone = Game(board_state)
+            clone.apply_move(move)
+            node = Node(str(clone))
+            node.algebraic_move = move
+            possible_moves.append(node)
+        return possible_moves
+
+    def get_heuristic(self, board_state=None):
+        cache_parse = board_state.split(" ")[0] + " " + board_state.split(" ")[1]
+        if board_state == None:
+            board_state = str(self.game)
+        clone = Game(board_state)
+        total_points = 0
+        # total piece count
+        total_points += heuristics2.material(board_state, 100)
+        total_points += heuristics2.piece_moves(clone, 50)
+        total_points += heuristics2.in_check(clone, 1)
+        total_points += heuristics2.pawn_structure(board_state, 1)
+        return total_points
+
+    def minimax(self, node, current_depth=0):
+        if current_depth == self.max_depth:
+            # get heuristic of each node
+            node.value = self.get_heuristic(node.board_state)
+            return node.value
+        if current_depth % 2 == 0:
+            # min player's turn
+            current_depth += 1
+            self.is_turn = False
+            return min([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state)])
+        else:
+            # max player's turn
+            self.is_turn = True
+            current_depth += 1
+            return max([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state)])
+
+    def make_move(self, board_state):
+        self.is_turn = True
+        possible_moves = self.get_moves(board_state)
+        with open('moves_cache_white.txt','r') as f:
+            past_moves = f.read()
+        for move in possible_moves:
+            move.value = self.minimax(move)
+        best_move = possible_moves[0]
+        for move in possible_moves:
+            if move.board_state in past_moves:
+                continue
+            if move.value > best_move.value:
+                best_move = move
+        # best_move at this point stores the move with the highest heuristic
+        self.cache_moves(best_move.board_state)
+        return best_move.algebraic_move
+    
+    def ab_make_move(self, board_state):
+        possible_moves = self.get_moves(board_state)
+        alpha = -1000
+        beta = 1000
+        best_move = possible_moves[0]
+        for move in possible_moves:
+            board_value = self.ab_minimax(move, alpha, beta)
             if alpha < board_value:
                 alpha = board_value
                 best_move = move
@@ -284,6 +424,12 @@ class AI():
                         alpha = board_value
             return alpha
 
+
+    def cache_moves(self,data):
+        f = open('./moves_cache_white.txt', 'a')
+        f.write(data)
+        f.write('\n')
+        f.close()
 # if __name__ == "__main__":
 #     import unittest
 #     class Test_AI(unittest.TestCase):
