@@ -90,3 +90,9 @@ env/
 .ropeproject
 
 *.prof
+
+# Node.js / Frontend
+node_modules/
+frontend/dist/
+frontend/.env.local
+*.local
