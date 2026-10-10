@@ -110,63 +110,36 @@ def in_check(game, weight):
 
 if __name__ == "__main__":
     import unittest
+    # Every heuristic returns a single score from black's perspective:
+    # positive favours black, negative favours white.
     class Test_material_heuristic(unittest.TestCase):
         def test_material_heuristic(self):
-            player_points_1 = {'w': 0, 'b': 0}
-            self.assertEqual(material('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', player_points_1, 1)['w'], 45, "Should return white player's total sum of piece values")
-            player_points_2 = {'w': 0, 'b': 0}
-            self.assertEqual(material('1nbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', player_points_2, 1)['b'], 40, "Should return black player's total sum of piece values minus one rook")
+            self.assertEqual(material('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 1), 0, "Should be even at the start")
+            self.assertEqual(material('1nbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR', 1), -5, "Should be down a rook for black")
+            self.assertEqual(material('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/1NBQKBNR', 2), 10, "Should apply the weight to a rook advantage for black")
 
         def test_piece_moves_heuristics(self):
-            player_points_1 = {'w': 0, 'b': 0}
             new_game = Game()
-            self.assertEqual(piece_moves(new_game, player_points_1, 0.50)['w'], 16, "Should return white player's sum of total weighted legal moves")
-            player_points_2 = {'w': 0, 'b': 0}
+            self.assertEqual(piece_moves(new_game, 1), -6.0, "Should subtract white's legal moves into the center")
             new_game.apply_move("d2d3")
             new_game.apply_move("e7e6")
-            self.assertEqual(piece_moves(new_game, player_points_2, 0.50)['w'], 29, "Should return white player's sum of total weighted legal moves after pawn moves d2d3")
+            self.assertEqual(piece_moves(new_game, 1), -6.5, "Should subtract white's center moves after d2d3 e7e6")
 
         def test_in_check(self):
-            player_points = {'w': 0, 'b': 0}
             # Initialized Board
-            situation_a = Game()
-            in_check(situation_a, player_points, 1)
-            self.assertEqual(player_points['b'], 0, "Should not increment player_points when opponent not in check or checkmate")
-            self.assertEqual(player_points['w'], 0, "Should not increment player_points when opponent not in check or checkmate")
-            # Check situation
+            self.assertEqual(in_check(Game(), 1), 0, "Should score 0 when nobody is in check")
+            # Black in check
             situation_b = Game("rnbqkbnr/ppp2ppp/8/1B1pp3/3PP3/8/PPP2PPP/RNBQK1NR b KQkq - 1 3")
-            in_check(situation_b, player_points, 1)
-            self.assertEqual(player_points['b'], 0, "Should not increment player_points when opponent not in check or checkmate")
-            self.assertEqual(player_points['w'], 1, "Should increment player_points when opponent is in check")
-
-            # Checkmate situation
+            self.assertEqual(in_check(situation_b, 1), -1, "Should penalize black for being in check")
+            # Black checkmated
             situation_c = Game("r1bqkbnr/p1pppB1p/1pn2p2/6p1/8/1QP1P3/PP1P1PPP/RNB1K1NR b KQkq - 1 5")
-            in_check(situation_c, player_points, 1)
-            self.assertEqual(player_points['b'], 0, "Should not increment player_points when opponent not in check or checkmate")
-            self.assertEqual(player_points['w'], float("inf"), "Should set player_points to infinity when opponent in checkmate")
-
-        def test_center_squares(self):
-            player_points = {'w': 0, 'b': 0}
-            #Initialized board
-            situation_a = Game()
-            center_squares(situation_a, player_points, 1)
-            self.assertEqual(player_points['b'], 0, "Should not have value since no piece is in any of the center squares")
-            self.assertEqual(player_points['w'], 0, "Should not have value since no piece is in any of the center squares")
-            situation_b = Game("r1bqkb1r/ppp1pppp/2n2n2/3p4/3PP3/2PQ4/PP3PPP/RNB1KBNR b KQkq e3 0 4")
-            center_squares(situation_b, player_points, 1)
-            self.assertEqual(player_points['b'], 5, "Should have points for 2 pieces in the outer square and 1 in the inner (5)")
-            self.assertEqual(player_points['w'], 8, "Should have points for 2 pieces in the outer square and 2 in the inner (8)")
+            self.assertEqual(in_check(situation_c, 1), float("-inf"), "Should be -inf when black is checkmated")
 
         def test_pawn_structure_heuristic(self):
-            player_points_1 = {'w': 0, 'b': 0}
             situation_1 = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-            self.assertEqual(pawn_structure(situation_1, player_points_1, 1)['w'], 0, "Should return value of white's pawn structure")
-            player_points_2 = {'w': 0, 'b': 0}
+            self.assertEqual(pawn_structure(situation_1, 1), 0, "Should have no protected black pawns at the start")
             situation_2 = "rnbqkbnr/8/p1p1p1p1/1p1p1p1p/1P1P1P1P/P1P1P1P1/8/RNBQKBNR w KQkq - 0 9"
-            self.assertEqual(pawn_structure(situation_2, player_points_2, 1)['w'], 7, "Should return value of white's pawn structure")
-            player_points_3 = {'w': 0, 'b': 0}
+            self.assertEqual(pawn_structure(situation_2, 1), 7, "Should count black's pawn chain links")
             situation_3 = "rnbqkbnr/pppp4/4pp2/P3P1pp/1P1P4/2P5/5PPP/RNBQKBNR b KQkq - 0 7"
-            pawn_structure(situation_3, player_points_3, 1)
-            self.assertEqual(player_points_3['w'], 4, "Should return value of white's pawn structure")
-            self.assertEqual(player_points_3['b'], 2, "Should return value of black's pawn structure")
+            self.assertEqual(pawn_structure(situation_3, 2), 4, "Should apply the weight to black's pawn chain links")
     unittest.main()

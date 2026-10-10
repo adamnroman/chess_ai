@@ -68,7 +68,7 @@ def homepage():
             board_layout = ''.join(board_layout).split('/')
             piece_styles = {'r': u'&#9820', 'n': u'&#9822', 'b': u'&#9821', 'q': u'&#9819', 'k': u'&#9818', 'p': u'&#9823', 'P': u'&#9817', 'R': u'&#9814', 'N': u'&#9816', 'B': u'&#9815', 'Q': u'&#9813', 'K': u'&#9812', '-': ''}
             return render_template('homepage3.html', board_layout=board_layout, piece_styles=piece_styles)
-        return render_template("/game_over")
+        return render_template("game_over.html")
 
 @app.route('/ai', methods=['GET', 'POST'])
 def aivsai():
