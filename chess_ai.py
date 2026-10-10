@@ -123,11 +123,22 @@ class Game_Engine():
             piece_tracker[piece] = 0
         return captured
 
+# Larger than any heuristic score, so a forced mate outranks material.
+MATE_SCORE = 1000000
+PIECE_VALUES = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0}
+
+class SearchTimeout(Exception):
+    pass
+
 class AI():
-    def __init__(self, game, max_depth=1, leaf_nodes=[], node_count=0):
+    def __init__(self, game, max_depth=1, leaf_nodes=[], node_count=0, time_limit=1.0):
         self.max_depth = max_depth
         self.game = game
         self.node_count = node_count
+        # alpha-beta search settings (max_depth only applies to minimax)
+        self.time_limit = time_limit
+        self.min_depth = 2
+        self.max_search_depth = 8
 
 
     def print_board(self, board_state, captured={"w": [], "b": []}):
@@ -180,11 +191,10 @@ class AI():
             possible_moves.append(node)
         return possible_moves
 
-    def get_heuristic(self, board_state=None):
-        cache_parse = board_state.split(" ")[0] + " " + board_state.split(" ")[1]
+    def get_heuristic(self, board_state=None, game=None):
         if board_state == None:
             board_state = str(self.game)
-        clone = Game(board_state)
+        clone = game if game is not None else Game(board_state)
         total_points = 0
         # total piece count
         total_points += heuristics.material(board_state, 100)
@@ -210,65 +220,94 @@ class AI():
             return max([self.minimax(child_node, current_depth) for child_node in self.get_moves(node.board_state)])
 
     def make_move(self, board_state):
-        self.is_turn = True
-        possible_moves = self.get_moves(board_state)
-        for move in possible_moves:
-            move.value = self.minimax(move)
-        best_move = possible_moves[0]
-        for move in possible_moves:
-            if move.value > best_move.value:
-                best_move = move
-        # best_move at this point stores the move with the highest heuristic
-        data = str(best_move)
-        self.cache_moves(data)
-        return best_move.algebraic_move
-    
-    def ab_make_move(self, board_state):
-        possible_moves = self.get_moves(board_state)
-        alpha = -1000
-        beta = 1000
-        best_move = possible_moves[0]
-        for move in possible_moves:
-            board_value = self.ab_minimax(move, alpha, beta)
-            if alpha < board_value:
-                alpha = board_value
-                best_move = move
-                best_move.value = alpha
-        # best_move at this point stores the move with the highest heuristic
-        return best_move.algebraic_move
+        return self.ab_make_move(board_state)
 
-    def ab_minimax(self, node, alpha, beta, current_depth=0):
-        current_depth += 1
-        if current_depth == self.max_depth:
-            board_value = self.get_heuristic(node.board_state)
-            if current_depth % 2 == 0:
-                # pick largest number, where root is black and even depth
-                if (alpha < board_value):
-                    alpha = board_value
-                self.node_count += 1
-                return alpha
-            else:
-                # pick smallest number, where root is black and odd depth
-                if (beta > board_value):
-                    beta = board_value
-                self.node_count += 1
-                return beta
-        if current_depth % 2 == 0:
-            # min player's turn
-            for child_node in self.get_moves(node.board_state):
-                if alpha < beta:
-                    board_value = self.ab_minimax(child_node,alpha, beta, current_depth)
-                    if beta > board_value:
-                        beta = board_value
-            return beta
-        else:
-            # max player's turn
-            for child_node in self.get_moves(node.board_state):
-                if alpha < beta:
-                    board_value = self.ab_minimax(child_node,alpha, beta, current_depth)
-                    if alpha < board_value:
-                        alpha = board_value
-            return alpha
+    def ab_make_move(self, board_state):
+        # Iterative deepening: always finish min_depth plies, then keep going
+        # one ply deeper until time_limit seconds have passed. Each pass
+        # searches the previous pass's best move first, so a pass cut short by
+        # the clock is still usable for every root move it fully searched.
+        start_time = time.time()
+        self.node_count = 0
+        self.deadline = None
+        root = Game(board_state)
+        # heuristics score positions from black's point of view
+        color = 1 if root.state.player == 'b' else -1
+        moves = self.order_moves(root, root.get_moves())
+        best_move = moves[0]
+        self.search_depth = 0
+        for depth in range(1, self.max_search_depth + 1):
+            if depth > self.min_depth:
+                self.deadline = start_time + self.time_limit
+            alpha = -float("inf")
+            best = None
+            scores = {}
+            try:
+                for move in moves:
+                    child = self.apply(board_state, move)
+                    score = -self.ab_minimax(child, depth - 1, -float("inf"), -alpha, -color)
+                    scores[move] = score
+                    if best is None or score > alpha:
+                        alpha = score
+                        best = move
+            except SearchTimeout:
+                if best is not None:
+                    best_move = best
+                break
+            best_move = best
+            self.search_depth = depth
+            if alpha >= MATE_SCORE or time.time() - start_time > self.time_limit:
+                break
+            moves = sorted(moves, key=lambda m: -scores[m])
+        return best_move
+
+    def ab_minimax(self, board_state, depth, alpha, beta, color):
+        # Negamax alpha-beta: returns the score from the point of view of the
+        # side to move, where color is 1 for black and -1 for white.
+        if self.deadline is not None and time.time() > self.deadline:
+            raise SearchTimeout()
+        self.node_count += 1
+        game = Game(board_state)
+        moves = game.get_moves()
+        if not moves:
+            if game.status == Game.CHECKMATE:
+                # prefer quicker mates (and slower losses)
+                return -(MATE_SCORE + depth)
+            return 0
+        if depth == 0:
+            return color * self.get_heuristic(board_state, game)
+        best = -float("inf")
+        for move in self.order_moves(game, moves):
+            score = -self.ab_minimax(self.apply(board_state, move), depth - 1, -beta, -alpha, -color)
+            if score > best:
+                best = score
+            if score > alpha:
+                alpha = score
+            if alpha >= beta:
+                break
+        return best
+
+    def apply(self, board_state, move):
+        # moves come from get_moves() so they are already legal; skip the
+        # (expensive) re-validation in apply_move
+        clone = Game(board_state, validate=False)
+        clone.apply_move(move)
+        return str(clone)
+
+    def order_moves(self, game, moves):
+        # Search promising moves first so alpha-beta can prune more: captures
+        # of valuable pieces by cheap ones, then promotions, then the rest.
+        def score(move):
+            target = game.board.get_piece(Game.xy2i(move[2:4])).lower()
+            value = 0
+            if target != " ":
+                attacker = game.board.get_piece(Game.xy2i(move[:2])).lower()
+                value += 10 * PIECE_VALUES[target] - PIECE_VALUES[attacker]
+            if len(move) == 5:
+                value += 10 * PIECE_VALUES[move[4]]
+            return value
+        return sorted(moves, key=score, reverse=True)
+
     def cache_moves(self,data):
         f = open('./moves_cache.txt', 'a')
         f.write(data)

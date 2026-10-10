@@ -17,6 +17,10 @@ from collections import namedtuple
 from board import Board
 from moves import MOVES
 
+# Default square list for move generation; get_moves() caches its result only
+# when called with this exact object (i.e. for the whole board).
+ALL_SQUARES = range(64)
+
 # Define a named tuple with FEN field names to hold game state information
 State = namedtuple('State', ['player', 'rights', 'en_passant', 'ply', 'turn'])
 
@@ -88,6 +92,7 @@ class Game(object):
         clearing it first.
         """
         self.fen_history.append(fen)
+        self._legal_moves = None
         fields = fen.split(' ')
         fields[4] = int(fields[4])
         fields[5] = int(fields[5])
@@ -205,7 +210,7 @@ class Game(object):
         # state update must happen after castling
         self.set_fen(' '.join(str(x) for x in [self.board] + list(fields)))
 
-    def get_moves(self, player=None, idx_list=range(64)):
+    def get_moves(self, player=None, idx_list=ALL_SQUARES):
         """
         Get a list containing the legal moves for pieces owned by the
         specified player that are located at positions included in the
@@ -219,26 +224,28 @@ class Game(object):
         if not player:
             player = self.state.player
 
+        # The full legal move list for the side to move is requested several
+        # times per position (status, heuristics, search), so compute it once.
+        use_cache = idx_list is ALL_SQUARES and player == self.state.player
+        if use_cache and self._legal_moves is not None:
+            return list(self._legal_moves)
+
         res_moves = []
+        k_sym, opp = {'w': ('K', 'b'), 'b': ('k', 'w')}.get(player)
+        kdx = self.board.find_piece(k_sym)
+        k_loc = Game.i2xy(kdx)
+        position = self.board._position
+        ep_idx = None if self.state.en_passant == '-' else Game.xy2i(self.state.en_passant)
 
-        # This is the most inefficient part of the model - there is no cache
-        # for previously computed move lists, so creating a new test board
-        # each time and applying the moves incurs high overhead, and throws
-        # away the result at the end of each pass through the loop
-        test_board = Game(fen=str(self), validate=False)
         for move in self._all_moves(player=player, idx_list=idx_list):
-
-            test_board.reset(fen=str(self))
+            start = Game.xy2i(move[:2])
+            end = Game.xy2i(move[2:4])
 
             # Don't allow castling out of or through the king in check
-            k_sym, opp = {'w': ('K', 'b'), 'b': ('k', 'w')}.get(player)
-            kdx = self.board.find_piece(k_sym)
-            k_loc = Game.i2xy(kdx)
-            dx = abs(kdx - Game.xy2i(move[2:4]))
+            dx = abs(kdx - end)
 
             if move[0:2] == k_loc and dx == 2:
 
-                op_moves = set([m[2:4] for m in test_board.get_moves(player=opp)])
                 castle_gap = {'e1g1': 'e1f1', 'e1c1': 'e1d1',
                               'e8g8': 'e8f8', 'e8c8': 'e8d8'}.get(move, '')
 
@@ -246,20 +253,74 @@ class Game(object):
                 # returning moves in order radiating away from each piece, so that
                 # king castling moves are always considered after verifying the king
                 # can legally move to the gap cell.
-                if (k_loc in op_moves or castle_gap and castle_gap not in res_moves):
+                if (self.is_attacked(kdx, opp) or
+                        castle_gap and castle_gap not in res_moves):
                     continue
 
-            # Apply the move to the test board to ensure that the king does
-            # not end up in check
-            test_board.apply_move(move)
-            tgts = set([m[2:4] for m in test_board.get_moves()])
+            # Make the move on a copy of the board (the same piece placement
+            # apply_move() would produce) and make sure the king is not left
+            # attacked
+            test = list(position)
+            piece = test[start]
+            test[end] = piece
+            test[start] = ' '
+            sym = piece.lower()
+            if sym == 'p' and end == ep_idx:
+                test[end + 8 if ep_idx < 24 else end - 8] = ' '
+            c_type = {62: 'K', 58: 'Q', 6: 'k', 2: 'q'}.get(end, None)
+            if sym == 'k' and c_type and c_type in self.state.rights:
+                r_start, r_end = {'K': (63, 61), 'Q': (56, 59),
+                                  'k': (7, 5), 'q': (0, 3)}[c_type]
+                test[r_end] = test[r_start]
+                test[r_start] = ' '
 
-            if Game.i2xy(test_board.board.find_piece(k_sym)) not in tgts:
+            if not Game._square_attacked(test, end if sym == 'k' else kdx, opp):
                 res_moves.append(move)
 
+        if use_cache:
+            self._legal_moves = list(res_moves)
         return res_moves
 
-    def _all_moves(self, player=None, idx_list=range(64)):
+    def is_attacked(self, idx, player):
+        """
+        Return True if any piece owned by `player` attacks the square at idx.
+        Equivalent to checking whether idx is the target of one of the
+        player's moves from _all_moves(), but without generating them all.
+        """
+        return Game._square_attacked(self.board._position, idx, player)
+
+    @staticmethod
+    def _square_attacked(position, idx, player):
+        """Same as is_attacked(), for a raw piece placement list."""
+        def own(sym):
+            return sym.upper() if player == 'w' else sym
+
+        if idx < 0:
+            return False
+        for sym, attackers in (('r', 'rq'), ('b', 'bq'), ('n', 'n'), ('k', 'k')):
+            attackers = [own(a) for a in attackers]
+            for ray in MOVES[sym][idx]:
+                # the king's ray may continue to a castling square; only the
+                # adjacent square is an attack
+                for end in (ray[:1] if sym == 'k' else ray):
+                    piece = position[end]
+                    if piece != ' ':
+                        if piece in attackers:
+                            return True
+                        break
+
+        # pawns capture diagonally towards the opponent's side
+        col = idx % 8
+        if player == 'w':
+            sources = [(idx + 7, col > 0), (idx + 9, col < 7)]
+        else:
+            sources = [(idx - 7, col < 7), (idx - 9, col > 0)]
+        for src, on_board in sources:
+            if on_board and 0 <= src < 64 and position[src] == own('p'):
+                return True
+        return False
+
+    def _all_moves(self, player=None, idx_list=ALL_SQUARES):
         """
         Get a list containing all reachable moves for pieces owned by the
         specified player (including moves that would expose the player's king
